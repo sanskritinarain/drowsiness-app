@@ -198,10 +198,11 @@ def process_frame(bgr, state: SessionState):
     # PERCLOS
     perclos = sum(1 for s in state.score_history if s > 0.65) / max(len(state.score_history),1)
 
-    if final >= 0.70:   alert = 'ALERT'
-    elif final >= 0.50: alert = 'WARNING'
-    else:               alert = 'AWAKE'
-
+   if len(state.buffer) < SEQ_LEN:
+    alert = 'CALIBRATING'
+elif final >= 0.70:   alert = 'ALERT'
+elif final >= 0.55: alert = 'WARNING'
+else:               alert = 'AWAKE'
     return {
         'alert':        alert,
         'final_score':  round(final, 3),
