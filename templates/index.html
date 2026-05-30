@@ -1,1 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CADS | Drowsiness Monitor</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 
+:root{
+  --bg:#f4f7fb;
+  --surface:rgba(255,255,255,.72);
+  --surface-strong:#ffffff;
+  --border:rgba(15,23,42,.08);
+  --text:#0f172a;
+  --muted:#64748b;
+  --primary:#2563eb;
+  --primary-2:#7c3aed;
+  --success:#16a34a;
+  --warning:#d97706;
+  --danger:#dc2626;
+  --calibrating:#0891b2;
+  --shadow:0 24px 70px rgba(15,23,42,.10);
+  --shadow-soft:0 10px 30px rgba(15,23,42,.06);
+  --radius:24px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  min-height:100vh;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(37,99,235,.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(124,58,237,.10), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #eef3f9 100%);
+}
+header{
+  display:flex;align-items:center;gap:12px;
+  padding:18px 28px;
+  background:rgba(255,255,255,.68);
+  backdrop-filter:blur(22px);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset;
+}
+header h1{font-size:1.1rem;font-weight:800;letter-spacing:.2px}
+.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8}
+.dot.live{background:var(--success);box-shadow:0 0 0 6px rgba(22,163,74,.12)}
+#fps-display{margin-left:auto;font-size:.84rem;color:var(--muted)}
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 360px;
+  gap:18px;
+  padding:20px;
+  max-width:1320px;
+  margin:0 auto;
+}
+.status-banner,.card,.video-panel{background:var(--surface);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.55);box-shadow:var(--shadow-soft)}
+.status-banner{
+  grid-column:1/-1;
+  border-radius:var(--radius);
+  padding:18px 22px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  transition: background 0.3s ease;
+}
+.status-banner.AWAKE      {background:linear-gradient(135deg, rgba(22,163,74,.10),  rgba(255,255,255,.72))}
+.status-banner.WARNING    {background:linear-gradient(135deg, rgba(217,119,6,.10),  rgba(255,255,255,.72))}
+.status-banner.ALERT      {background:linear-gradient(135deg, rgba(220,38,38,.11),  rgba(255,255,255,.74))}
+.status-banner.CALIBRATING{background:linear-gradient(135deg, rgba(8,145,178,.10),  rgba(255,255,255,.74))}
+
+.status-left{display:flex;align-items:center;gap:14px}
+.status-icon{font-size:2.1rem}
+.status-label{font-size:1.6rem;font-weight:800;letter-spacing:-.02em}
+.status-sub{font-size:.92rem;color:var(--muted);margin-top:4px;line-height:1.4}
+.score-big{font-size:2.75rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+
+/* Warmup progress bar inside banner */
+.warmup-bar-wrap{margin-top:8px}
+.warmup-bar-bg{background:rgba(8,145,178,.15);border-radius:999px;height:6px;overflow:hidden;margin-top:4px}
+.warmup-bar-fill{background:linear-gradient(90deg,#0891b2,#7c3aed);height:100%;border-radius:999px;transition:width .3s ease}
+
+.video-panel{border-radius:var(--radius);overflow:hidden;position:relative}
+video,canvas{display:block;width:100%}
+canvas{position:absolute;inset:0}
+.calib-bar-wrap{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(180deg, transparent, rgba(15,23,42,.82));padding:12px 14px;color:#fff}
+.calib-bar-bg{background:rgba(255,255,255,.18);border-radius:999px;height:8px;margin-top:6px;overflow:hidden}
+.calib-bar-fill{background:linear-gradient(90deg,var(--primary),var(--primary-2));height:100%;border-radius:999px;transition:width .3s ease}
+.no-face-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.45);color:#fff;font-weight:600;letter-spacing:.2px;opacity:0;transition:opacity .25s ease}
+.no-face-overlay.show{opacity:1}
+.right-panel{display:flex;flex-direction:column;gap:14px}
+.card{border-radius:var(--radius);padding:16px}
+.card h3{font-size:.8rem;text-transform:none;letter-spacing:-.01em;color:#334155;margin-bottom:14px;font-weight:800}
+.signal-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.signal-label{font-size:.76rem;width:60px;color:var(--muted)}
+.signal-bar-bg{flex:1;background:#e2e8f0;border-radius:999px;height:10px;overflow:hidden}
+.signal-bar-fill{height:100%;border-radius:999px;transition:width .2s ease}
+.signal-val{font-size:.76rem;width:44px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-box{background:linear-gradient(180deg,#fff, #f8fafc);border:1px solid rgba(15,23,42,.06);border-radius:16px;padding:12px 10px}
+.stat-box .val{font-size:1.12rem;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat-box .lbl{font-size:.72rem;color:var(--muted);margin-top:4px;font-weight:600}
+.btn{width:100%;padding:12px 14px;border-radius:16px;border:1px solid transparent;font-size:.92rem;font-weight:800;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,opacity .2s ease,background .2s ease;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,.08)}
+.btn-start{background:linear-gradient(135deg,#007aff,#0056d6);color:#fff}
+.btn-stop{background:linear-gradient(135deg,#ff3b30,#d92d20);color:#fff}
+.btn-recalib{background:rgba(255,255,255,.82);color:var(--text);border-color:rgba(15,23,42,.08)}
+.btn-row{display:flex;gap:10px}
+#score-chart{width:100%;height:92px;display:block}
+@media (max-width: 1050px){.layout{grid-template-columns:1fr}.right-panel{display:grid;grid-template-columns:1fr 1fr}.card:last-child{grid-column:1/-1}}
+@media (max-width: 720px){header{padding:14px 16px}.layout{padding:14px}.right-panel{grid-template-columns:1fr}.status-banner{flex-direction:column;align-items:flex-start}.score-big{font-size:2rem}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot" id="conn-dot"></div>
+  <div style="display:flex;flex-direction:column;line-height:1.1"><h1>CADS</h1><span style="font-size:.78rem;color:var(--muted);font-weight:600">Continuous Alert & Detection System</span></div>
+  <span id="fps-display" style="margin-left:auto;font-size:.8rem;color:var(--muted)"></span>
+</header>
+
+<div class="layout">
+
+  <!-- Status banner -->
+  <div class="status-banner AWAKE" id="banner">
+    <div class="status-left">
+      <div class="status-icon" id="status-icon">--</div>
+      <div>
+        <div class="status-label" id="status-label">INITIALISING</div>
+        <div class="status-sub" id="status-sub">Start monitoring camera to begin</div>
+        <!-- Warmup bar shown only during CALIBRATING -->
+        <div class="warmup-bar-wrap" id="warmup-bar-wrap" style="display:none">
+          <div class="warmup-bar-bg"><div class="warmup-bar-fill" id="warmup-bar-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="score-big" id="score-big">—</div>
+  </div>
+
+  <!-- Video -->
+  <div class="video-panel">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+    <div class="no-face-overlay" id="no-face">No face detected</div>
+    <div class="calib-bar-wrap" id="calib-wrap" style="display:none">
+      <span id="calib-text">Calibrating... 0%</span>
+      <div class="calib-bar-bg"><div class="calib-bar-fill" id="calib-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- Right panel -->
+  <div class="right-panel">
+
+    <!-- Controls -->
+    <div class="card">
+      <h3>Controls</h3>
+      <div class="btn-row">
+        <button class="btn btn-start" id="btn-start" onclick="startCamera()">▶ Start monitoring</button>
+        <button class="btn btn-stop"  id="btn-stop"  onclick="stopCamera()" style="display:none">■ Stop camera</button>
+      </div>
+      <button class="btn btn-recalib" style="margin-top:8px" onclick="recalibrate()">🔄 Recalibrate model</button>
+    </div>
+
+    <!-- Signal bars -->
+    <div class="card">
+      <h3>Signal Analysis</h3>
+      <div id="signals">
+        <div class="signal-row">
+          <span class="signal-label">CNN</span>
+          <div class="signal-bar-bg"><div class="signal-bar-fill" id="bar-cnn" style="width:0%;background:#818cf8"></div></div>
+          <span class="signal-val" id="val-cnn">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="signal-label">EAR</span>
+          <div class="signal-bar-bg"><div class="signal-bar-fill" id="bar-ear" style="width:0%;background:#fb923c"></div></div>
+          <span class="signal-val" id="val-ear">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="signal-label">MAR</span>
+          <div class="signal-bar-bg"><div class="signal-bar-fill" id="bar-mar" style="width:0%;background:#34d399"></div></div>
+          <span class="signal-val" id="val-mar">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="signal-label">LSTM</span>
+          <div class="signal-bar-bg"><div class="signal-bar-fill" id="bar-lstm" style="width:0%;background:#f472b6"></div></div>
+          <span class="signal-val" id="val-lstm">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="signal-label">PERCLOS</span>
+          <div class="signal-bar-bg"><div class="signal-bar-fill" id="bar-perclos" style="width:0%;background:#f85149"></div></div>
+          <span class="signal-val" id="val-perclos">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="card">
+      <h3>Driver Stats</h3>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="val" id="stat-pitch">—</div><div class="lbl">Pitch (°)</div></div>
+        <div class="stat-box"><div class="val" id="stat-yaw">—</div><div class="lbl">Yaw (°)</div></div>
+        <div class="stat-box"><div class="val" id="stat-ear">—</div><div class="lbl">Raw EAR</div></div>
+        <div class="stat-box"><div class="val" id="stat-thresh">—</div><div class="lbl">EAR Thresh</div></div>
+      </div>
+    </div>
+
+    <!-- Score chart -->
+    <div class="card">
+      <h3>Risk Trend</h3>
+      <canvas id="score-chart"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let ws, stream, sendInterval, frameCount=0, lastFpsTime=Date.now();
+
+const video   = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const ctx     = overlay.getContext('2d');
+
+// ── WebSocket ────────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  ws.onopen  = () => document.getElementById('conn-dot').classList.add('live');
+  ws.onclose = () => { document.getElementById('conn-dot').classList.remove('live'); setTimeout(connectWS,2000); };
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    if (d.error === 'no_face') {
+      document.getElementById('no-face').classList.add('show');
+      return;
+    }
+    document.getElementById('no-face').classList.remove('show');
+    updateUI(d);
+    frameCount++;
+    const now = Date.now();
+    if (now - lastFpsTime > 1000) {
+      document.getElementById('fps-display').textContent = `${frameCount} fps`;
+      frameCount=0; lastFpsTime=now;
+    }
+  };
+}
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+async function startCamera() {
+  stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}});
+  video.srcObject = stream;
+  video.onloadedmetadata = () => {
+    overlay.width  = video.videoWidth;
+    overlay.height = video.videoHeight;
+  };
+  document.getElementById('btn-start').style.display='none';
+  document.getElementById('btn-stop').style.display='block';
+  connectWS();
+  sendInterval = setInterval(sendFrame, 100);
+}
+
+function stopCamera() {
+  clearInterval(sendInterval);
+  if (stream) stream.getTracks().forEach(t=>t.stop());
+  if (ws) ws.close();
+  document.getElementById('btn-start').style.display='block';
+  document.getElementById('btn-stop').style.display='none';
+}
+
+function recalibrate() {
+  if (ws && ws.readyState===1) ws.send(JSON.stringify({type:'reset_calibration'}));
+}
+
+// ── Send frame ───────────────────────────────────────────────────────────────
+const offscreen = document.createElement('canvas');
+function sendFrame() {
+  if (!ws || ws.readyState!==1) return;
+  offscreen.width=320; offscreen.height=240;
+  offscreen.getContext('2d').drawImage(video,0,0,320,240);
+  const data = offscreen.toDataURL('image/jpeg',0.7);
+  ws.send(JSON.stringify({type:'frame', data}));
+}
+
+// ── Update UI ─────────────────────────────────────────────────────────────────
+const COLORS = {
+  AWAKE:       '#3fb950',
+  WARNING:     '#d29922',
+  ALERT:       '#f85149',
+  CALIBRATING: '#0891b2'
+};
+const ICONS = {
+  AWAKE:       '✓',
+  WARNING:     '!',
+  ALERT:       '!!',
+  CALIBRATING: '⏳'
+};
+const SUBS = {
+  AWAKE:       'All clear — driver appears alert',
+  WARNING:     'Showing signs of drowsiness',
+  ALERT:       '⚠ PULL OVER SAFELY ⚠',
+  CALIBRATING: 'Warming up sensors — please look at camera...'
+};
+
+function updateUI(d) {
+  const alert  = d.alert || 'CALIBRATING';
+  const banner = document.getElementById('banner');
+  banner.className = `status-banner ${alert}`;
+
+  // Beep on ALERT only
+  if (alert === 'ALERT') {
+    try {
+      const actx = new AudioContext();
+      const osc  = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.connect(gain); gain.connect(actx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.3, actx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.4);
+      osc.start(); osc.stop(actx.currentTime + 0.4);
+    } catch(e) {}
+  }
+
+  document.getElementById('status-icon').textContent  = ICONS[alert]  || '⏳';
+  document.getElementById('status-label').textContent = alert;
+  document.getElementById('status-label').style.color = COLORS[alert] || '#0891b2';
+  document.getElementById('status-sub').textContent   = SUBS[alert]   || '';
+
+  // Show warmup progress bar during CALIBRATING
+  const warmupWrap = document.getElementById('warmup-bar-wrap');
+  if (alert === 'CALIBRATING') {
+    warmupWrap.style.display = 'block';
+    const pct = Math.round((d.warmup_progress || 0) * 100);
+    document.getElementById('warmup-bar-fill').style.width = `${pct}%`;
+    document.getElementById('score-big').textContent = `${pct}%`;
+    document.getElementById('score-big').style.color = COLORS.CALIBRATING;
+  } else {
+    warmupWrap.style.display = 'none';
+    document.getElementById('score-big').textContent = d.final_score != null ? d.final_score.toFixed(2) : '—';
+    document.getElementById('score-big').style.color = COLORS[alert] || '#0891b2';
+  }
+
+  // Signal bars
+  setBar('cnn',     d.cnn,            d.cnn);
+  setBar('ear',     1-(d.ear/0.4),    1-(d.ear/0.4));
+  setBar('mar',     d.mar,            d.mar);
+  setBar('lstm',    d.lstm_score??0,  d.lstm_score??0);
+  setBar('perclos', d.perclos,        d.perclos);
+
+  // Stats
+  document.getElementById('stat-pitch').textContent  = d.pitch != null ? d.pitch.toFixed(1) : '—';
+  document.getElementById('stat-yaw').textContent    = d.yaw   != null ? d.yaw.toFixed(1)   : '—';
+  document.getElementById('stat-ear').textContent    = d.ear   != null ? d.ear.toFixed(3)   : '—';
+  document.getElementById('stat-thresh').textContent = d.ear_thresh != null ? d.ear_thresh.toFixed(3) : '—';
+
+  // EAR calibration bar (on video)
+  const cw = document.getElementById('calib-wrap');
+  if (!d.calibrated) {
+    cw.style.display='block';
+    document.getElementById('calib-text').textContent = `Eye calibrating... ${Math.round(d.calib_progress*100)}%`;
+    document.getElementById('calib-fill').style.width  = `${d.calib_progress*100}%`;
+  } else {
+    cw.style.display='none';
+  }
+
+  // Chart
+  if (d.history) drawChart(d.history);
+}
+
+function setBar(id, frac, val) {
+  frac = Math.max(0,Math.min(1,frac||0));
+  document.getElementById(`bar-${id}`).style.width = `${frac*100}%`;
+  document.getElementById(`val-${id}`).textContent = (val??0).toFixed(2);
+}
+
+// ── Score chart ───────────────────────────────────────────────────────────────
+function drawChart(history) {
+  const c   = document.getElementById('score-chart');
+  const ctx = c.getContext('2d');
+  c.width   = c.offsetWidth * devicePixelRatio;
+  c.height  = 90 * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = c.offsetWidth, H = 90;
+
+  ctx.clearRect(0,0,W,H);
+
+  [0.50, 0.70].forEach(th => {
+    const y = H - th*H;
+    ctx.strokeStyle = th===0.70 ? '#f8514940' : '#d2992240';
+    ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  if (!history.length) return;
+  const step = W / Math.max(history.length-1,1);
+
+  ctx.beginPath();
+  history.forEach((v,i) => {
+    const x=i*step, y=H-v*H;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo((history.length-1)*step,H); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fillStyle='#58a6ff20'; ctx.fill();
+
+  ctx.beginPath();
+  history.forEach((v,i) => {
+    const x=i*step, y=H-v*H;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  const last = history[history.length-1];
+  ctx.strokeStyle = last>=0.70?'#f85149':last>=0.55?'#d29922':'#58a6ff';
+  ctx.lineWidth=2; ctx.stroke();
+}
+</script>
+</body>
+</html>
