@@ -58,9 +58,9 @@ MODEL_3D       = np.array([
 ], dtype=np.float64)
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
-EAR_THRESH, MAR_THRESH = 0.20, 0.75   # raised MAR from 0.60 to 0.75 (real yawn only)
+EAR_THRESH, MAR_THRESH = 0.20, 0.75  
 PITCH_THRESH, YAW_THRESH = 15.0, 30.0
-W_CNN, W_EAR, W_MAR, W_POSE = 0.45, 0.25, 0.15, 0.15  # reduced EAR weight
+W_CNN, W_EAR, W_MAR, W_POSE = 0.45, 0.25, 0.15, 0.15 
 IMG_SIZE = 96
 MEAN = np.array([0.485,0.456,0.406],dtype=np.float32).reshape(3,1,1)
 STD  = np.array([0.229,0.224,0.225],dtype=np.float32).reshape(3,1,1)
@@ -81,7 +81,7 @@ def head_pose_angles(lm, idx, w, h):
     if not ok: return 0.,0.,0.
     rm,_ = cv2.Rodrigues(rv)
     a,*_ = cv2.RQDecomp3x3(rm)
-    # Fix pitch: normalize to -90..+90 range
+   
     pitch = a[0]
     if pitch > 90:  pitch = pitch - 180
     if pitch < -90: pitch = pitch + 180
@@ -101,8 +101,7 @@ def cnn_drowsy_prob(crop):
 
 # ── LSTM ──────────────────────────────────────────────────────────────────────
 DEVICE  = 'cuda' if torch.cuda.is_available() else 'cpu'
-SEQ_LEN = 20  # reduced from 30 to 20 for faster warmup
-
+SEQ_LEN = 20  
 class DrowsinessLSTM(nn.Module):
     def __init__(self, input_size=6, hidden_size=64, num_layers=2, num_classes=2):
         super().__init__()
@@ -133,7 +132,7 @@ class SessionState:
         self.personal_thresh = None
         self.calibrated      = False
         self.score_history   = deque(maxlen=150)
-        self.frame_count     = 0   # total frames processed
+        self.frame_count     = 0   
 
     def calibrate(self, ear):
         if self.calibrated: return
@@ -153,7 +152,7 @@ class SessionState:
 
     @property
     def warmed_up(self):
-        # True only after LSTM has enough frames
+       
         return len(self.buffer) >= SEQ_LEN
 
 # ── Process one frame ─────────────────────────────────────────────────────────
@@ -217,7 +216,7 @@ def process_frame(bgr, state: SessionState):
         alert = 'CALIBRATING'
     elif final >= 0.70:
         alert = 'ALERT'
-    elif final >= 0.55:   # raised from 0.50 to reduce false warnings
+    elif final >= 0.55:   
         alert = 'WARNING'
     else:
         alert = 'AWAKE'
